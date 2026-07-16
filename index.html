@@ -1674,7 +1674,8 @@ input[type=checkbox].toggle { width: 20px; height: 20px; accent-color: var(--pur
         </div>
         <div class="card" style="margin-bottom:12px;">
           <div class="section-title-a">🔊 Voz e áudio</div>
-          <div class="section-sub-a">Escolha a voz mais natural disponível neste aparelho. Dica: no Android, instale/atualize o app "Fala do Google"; no iPhone/iPad, baixe a voz <b>Luciana (Aprimorada)</b> em Ajustes → Acessibilidade → Conteúdo Falado → Vozes.</div>
+          <div class="section-sub-a">A voz que o Lorenzo ouve vem do próprio aparelho. Se estiver metálica, o aparelho só tem a voz básica — dá para instalar uma bem mais natural de graça (veja o guia abaixo).</div>
+          <div id="cfg-voice-warn" style="display:none;background:#fff7ed;border:1.5px solid #fbbf24;border-radius:12px;padding:11px 13px;margin-bottom:12px;font-size:12.5px;line-height:1.5;color:#92400e;font-family:var(--font-body);"></div>
           <div class="form-group">
             <label class="form-label">Voz do aparelho</label>
             <select class="form-input" id="cfg-voice"></select>
@@ -1688,6 +1689,8 @@ input[type=checkbox].toggle { width: 20px; height: 20px; accent-color: var(--pur
             <button class="btn-outline-a" onclick="testVoiceCfg()">▶️ Testar voz</button>
             <button class="btn-admin-action" style="flex:1;" onclick="saveVoiceCfg()">Salvar voz</button>
           </div>
+          <button class="btn-outline-a" style="width:100%;margin-top:10px;" onclick="toggleVoiceHelp()">📖 Como instalar uma voz melhor (Android)</button>
+          <div id="voice-help" style="display:none;margin-top:12px;padding:14px;background:#f8faff;border-radius:12px;font-size:12.5px;line-height:1.65;color:#334155;font-family:var(--font-body);"></div>
         </div>
         <div class="card" style="margin-bottom:12px;">
           <div class="section-title-a">🎙️ Banco de Voz da Família</div>
@@ -2070,8 +2073,18 @@ function initAudioAdmin() {
     sel.innerHTML = '<option value="">Voz padrão do aparelho</option>';
   } else {
     sel.innerHTML = voices.map(v =>
-      `<option value="${v.voiceURI}" ${cfg.voiceURI === v.voiceURI || (!cfg.voiceURI && v === voices[0]) ? 'selected' : ''}>${v.name} (${v.lang})${rankVoice(v) >= 160 ? ' ⭐' : ''}</option>`
+      `<option value="${v.voiceURI}" ${cfg.voiceURI === v.voiceURI || (!cfg.voiceURI && v === voices[0]) ? 'selected' : ''}>${voiceQualityLabel(v)} — ${v.name}</option>`
     ).join('');
+  }
+  // Aviso quando só há voz metálica disponível
+  const warn = document.getElementById('cfg-voice-warn');
+  if (warn) {
+    if (voices.length && !hasGoodVoice()) {
+      warn.style.display = 'block';
+      warn.innerHTML = '⚠️ <b>Este aparelho só tem uma voz básica instalada</b> (por isso soa metálica). Toque em "📖 Como instalar uma voz melhor" abaixo — leva 2 minutos e resolve.';
+    } else {
+      warn.style.display = 'none';
+    }
   }
   const rate = document.getElementById('cfg-rate');
   rate.value = cfg.rate ?? 0.92;
@@ -2150,6 +2163,26 @@ create policy audio_all on storage.objects for all
     • Toque em <b>🔌 Testar conexão</b> aqui em cima. Se aparecer ✅, toque em <b>💾 Salvar e conectar</b>.<br>
     • Nos outros aparelhos (esposa, fono), basta abrir o app, entrar como pais → Config → Nuvem e colar <b>o mesmo endereço e a mesma chave</b>. Não precisa refazer os passos 1 a 3.<br><br>
     <span style="color:#64748b;">Dica: a chave "anon" é pública de propósito e só mexe nos dados deste app — pode colá-la sem medo. Os dados do Lorenzo não ficam visíveis em buscas na internet.</span>`;
+}
+
+function toggleVoiceHelp() {
+  const el = document.getElementById('voice-help');
+  if (el.style.display === 'none') { el.innerHTML = voiceHelpText(); el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+function voiceHelpText() {
+  return `
+    <b>Como deixar a voz natural no Android</b> (grátis, ~2 min)<br>
+    A voz metálica é a voz "básica" que já vem no aparelho. Trocar pela voz do Google resolve.<br><br>
+    <b>1)</b> Abra as <b>Configurações</b> do aparelho.<br>
+    <b>2)</b> Vá em <b>Sistema → Idiomas e entrada → Saída de texto para voz</b>.<br>
+    <span style="color:#64748b;">(Em alguns aparelhos: <b>Acessibilidade → Texto para fala</b>, ou busque por "texto para voz" na busca das configurações.)</span><br>
+    <b>3)</b> Em "Mecanismo preferido", escolha <b>Fala do Google</b> (Google Text-to-Speech).<br>
+    <span style="color:#64748b;">Se não aparecer, instale grátis na Play Store: procure por <b>"Fala do Google"</b> ou "Speech Services by Google".</span><br>
+    <b>4)</b> Toque na engrenagem ⚙️ ao lado → <b>Instalar dados de voz</b> → <b>Português (Brasil)</b>.<br>
+    <b>5)</b> Baixe uma voz de <b>alta qualidade</b>. Evite as marcadas como "compactada" — essas são as metálicas.<br>
+    <b>6)</b> Feche e reabra o app do Lorenzo. A voz nova aparece aqui na lista com ⭐ ou 👍.<br><br>
+    <span style="color:#64748b;">Dica: se o app tiver internet, as vozes "de rede" do Google são as mais naturais de todas.</span>`;
 }
 
 function testVoiceCfg() {
@@ -3176,10 +3209,24 @@ function rankVoice(v) {
   else return -100;
   if (/natural|neural|online|premium|enhanced|aprimorad|wavenet/.test(n)) s += 60;
   if (n.includes('google')) s += 35;
-  if (/luciana|francisca|thalita|camila|vit[óo]ria|felipe|maria clara/.test(n)) s += 25;
-  if (v.localService === false) s += 10;
-  if (/compact|espeak|eloquence/.test(n)) s -= 60;
+  if (/luciana|francisca|thalita|camila|vit[óo]ria|felipe|maria clara|heloisa|ana/.test(n)) s += 25;
+  if (v.localService === false) s += 15; // voz de rede costuma ser bem melhor
+  if (/compact|espeak|eloquence|pico|svox/.test(n)) s -= 80; // as metálicas
   return s;
+}
+
+// Rótulo amigável de qualidade para exibir na lista
+function voiceQualityLabel(v) {
+  const r = rankVoice(v);
+  const n = v.name.toLowerCase();
+  if (/compact|espeak|pico|svox/.test(n)) return '⚠️ básica (pode soar metálica)';
+  if (r >= 155) return '⭐ ótima';
+  if (r >= 130) return '👍 boa';
+  return '• comum';
+}
+// Existe alguma voz de qualidade instalada?
+function hasGoodVoice() {
+  return getPtVoices().some(v => rankVoice(v) >= 130);
 }
 
 function getPtVoices() {
